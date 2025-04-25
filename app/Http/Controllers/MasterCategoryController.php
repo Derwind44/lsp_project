@@ -92,12 +92,12 @@ class MasterCategoryController extends Controller
      * Remove the specified resource from storage.
      */
     public function destroy(MasterCategory $masterCategory)
-{
-    try {
-        $masterCategory->delete();
-        return redirect()->route('master-categories.index')->with('success', 'Kategori berhasil dihapus');
-    } catch (\Exception $e) {
-        return redirect()->route('master-categories.index')->with('error', 'Gagal menghapus kategori: ' . $e->getMessage());
+    {
+        try {
+            $masterCategory->delete();
+            return redirect()->route('master-categories.index')->with('success', 'Kategori berhasil dihapus');
+        } catch (\Exception $e) {
+            return redirect()->route('master-categories.index')->with('error', 'Gagal menghapus kategori: ' . $e->getMessage());
+        }
     }
-}
 }

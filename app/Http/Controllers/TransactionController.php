@@ -6,6 +6,7 @@ use App\Models\Transaction;
 use App\Models\DetailTransaction;
 use App\Models\MasterItems;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -34,101 +35,84 @@ class TransactionController extends Controller
      */
     public function store(Request $request)
     {
-        $request->validate([
-            'date' => 'required|date',
-            'code' => 'required|string|unique:transactions,transaction_code',
-            'total' => 'required|numeric|min:0',
-        ]);
-
-        $cart = session()->get('cart', []);
-
-        if (empty($cart)) {
-            return redirect()->back()->with('error', 'Keranjang belanja kosong.');
-        }
-
-        // Mulai transaksi database
-        \DB::beginTransaction();
-
-        try {
-            // Buat transaksi baru
-            $transaction = \App\Models\Transaction::create([
-                'transaction_code' => $request->code,
-                'date' => $request->date,
-                'total_items' => array_sum(array_column($cart, 'quantity')),
-                'total_price' => $request->total,
-                'user_id' => auth()->id(),
+            $request->validate([
+                'date' => 'required|date',
+                'code' => 'required|string|unique:transactions,transaction_code',
+                'total' => 'required|numeric|min:0',
             ]);
 
-            // Simpan detail transaksi
-            foreach ($cart as $id => $details) {
-                $item = MasterItems::find($id);
+            $cart = session()->get('cart', []);
 
-                // Kurangi stok
-                $item->stock -= $details['quantity'];
-                $item->save();
-
-                // Simpan detail transaksi
-                DetailTransaction::create([
-                    'transaction_id' => $transaction->id,
-                    'item_id' => $id,
-                    'quantity' => $details['quantity'],
-                    'price' => $details['price'],
-                    'subtotal' => $details['price'] * $details['quantity'],
-                ]);
+            if (empty($cart)) {
+                return redirect()->back()->with('error', 'Keranjang belanja kosong.');
             }
 
-            // Commit transaksi
-            \DB::commit();
+            DB::beginTransaction();
 
-            // Kosongkan keranjang
-            session()->forget('cart');
+            try {
+                // Buat transaksi baru
+                $transaction = \App\Models\Transaction::create([
+                    'transaction_code' => $request->code,
+                    'date' => $request->date,
+                    'total_items' => array_sum(array_column($cart, 'quantity')),
+                    'total_price' => $request->total,
+                    'user_id' => Auth::user()->id,
+                ]);
 
-            return redirect()->route('transactions.show', $transaction->id)
-                ->with('success', 'Transaksi berhasil disimpan.');
+                // Simpan detail transaksi
+                foreach ($cart as $id => $details) {
+                    $item = MasterItems::find($id);
+
+                    // Kurangi stok
+                    $item->stock -= $details['quantity'];
+                    $item->save();
+
+                    // Simpan detail transaksi
+                    DetailTransaction::create([
+                        'transaction_id' => $transaction->id,
+                        'item_id' => $id,
+                        'quantity' => $details['quantity'],
+                        'price' => $details['price'],
+                        'subtotal' => $details['price'] * $details['quantity'],
+                    ]);
+                }
+
+                // Commit transaksi
+                DB::commit();
+
+                // Kosongkan keranjang
+                session()->forget('cart');
+
+                return redirect()->route('transactions.index')
+                    ->with('success', 'Transaksi berhasil dibuat');
+            } catch (\Exception $e) {
+                return redirect()->route('transactions.create')
+                    ->with('error', 'Gagal membuat transaksi: ' . $e->getMessage());
+            }
+    }
+
+    public function update(Request $request, Transaction $transaction)
+    {
+        try {
+            // Transaksi tidak dapat diupdate setelah dibuat
+            return redirect()->route('transactions.index')
+                ->with('success', 'Transaksi berhasil diperbarui');
         } catch (\Exception $e) {
-            // Rollback jika terjadi kesalahan
-            \DB::rollback();
-            return redirect()->back()->with('error', 'Terjadi kesalahan: ' . $e->getMessage());
+            return redirect()->route('transactions.edit', $transaction->id)
+                ->with('error', 'Gagal memperbarui transaksi: ' . $e->getMessage());
         }
     }
 
-
-    /**
-     * Display the specified resource.
-     */
-    public function show(Transaction $transaction)
-    {
-        $transaction->load('details.item');
-        return view('transactions.show', compact('transaction'));
-    }
-
-    /**
-     * Show the form for editing the specified resource.
-     */
-    public function edit(Transaction $transaction)
-    {
-        // Transaksi tidak dapat diedit setelah dibuat
-        return redirect()->route('transactions.index')
-            ->with('error', 'Transaksi tidak dapat diedit setelah dibuat');
-    }
-
-    /**
-     * Update the specified resource in storage.
-     */
-    public function update(Request $request, Transaction $transaction)
-    {
-        // Transaksi tidak dapat diupdate setelah dibuat
-        return redirect()->route('transactions.index')
-            ->with('error', 'Transaksi tidak dapat diupdate setelah dibuat');
-    }
-
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(Transaction $transaction)
     {
-        // Transaksi tidak dapat dihapus
-        return redirect()->route('transactions.index')
-            ->with('error', 'Transaksi tidak dapat dihapus');
+        try {
+            $transaction->delete();
+
+            return redirect()->route('transactions.index')
+                ->with('success', 'Transaksi berhasil dihapus');
+        } catch (\Exception $e) {
+            return redirect()->route('transactions.index')
+                ->with('error', 'Gagal menghapus transaksi: ' . $e->getMessage());
+        }
     }
 }

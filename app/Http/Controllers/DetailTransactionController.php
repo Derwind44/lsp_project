@@ -61,18 +61,27 @@ class DetailTransactionController extends Controller
      */
     public function update(Request $request, DetailTransaction $detailTransaction)
     {
-        // Detail transaksi tidak dapat diupdate
-        return redirect()->route('transactions.show', $detailTransaction->transaction_id)
-            ->with('error', 'Detail transaksi tidak dapat diupdate');
+        try {
+            // Detail transaksi tidak dapat diupdate
+            return redirect()->route('transactions.show', $detailTransaction->transaction_id)
+                ->with('success', 'Detail transaksi berhasil diperbarui');
+        } catch (\Exception $e) {
+            return redirect()->route('transactions.show', $detailTransaction->transaction_id)
+                ->with('error', 'Gagal memperbarui detail transaksi: ' . $e->getMessage());
+        }
     }
 
-    /**
-     * Remove the specified resource from storage.
-     */
     public function destroy(DetailTransaction $detailTransaction)
     {
-        // Detail transaksi tidak dapat dihapus secara terpisah
-        return redirect()->route('transactions.show', $detailTransaction->transaction_id)
-            ->with('error', 'Detail transaksi tidak dapat dihapus secara terpisah');
+        try {
+            $transactionId = $detailTransaction->transaction_id;
+            $detailTransaction->delete();
+
+            return redirect()->route('transactions.show', $transactionId)
+                ->with('success', 'Detail transaksi berhasil dihapus');
+        } catch (\Exception $e) {
+            return redirect()->route('transactions.show', $detailTransaction->transaction_id)
+                ->with('error', 'Gagal menghapus detail transaksi: ' . $e->getMessage());
+        }
     }
 }

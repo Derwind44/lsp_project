@@ -47,9 +47,8 @@ class CartController extends Controller
             if ($cart[$id]['quantity'] > 1) {
                 $cart[$id]['quantity']--;
                 session()->put('cart', $cart);
-                return redirect()->back()->with('success', 'Jumlah item berhasil dikurangi.');
+                return redirect()->back();
             } else {
-                // Jika jumlah hanya 1, hapus item dari keranjang
                 unset($cart[$id]);
                 session()->put('cart', $cart);
                 return redirect()->back()->with('success', 'Item berhasil dihapus dari keranjang.');
@@ -69,7 +68,7 @@ class CartController extends Controller
             if ($item && $cart[$id]['quantity'] < $item->stock) {
                 $cart[$id]['quantity']++;
                 session()->put('cart', $cart);
-                return redirect()->back()->with('success', 'Jumlah item berhasil ditambah.');
+                return redirect()->back();
             } else {
                 return redirect()->back()->with('error', 'Stok tidak mencukupi.');
             }
